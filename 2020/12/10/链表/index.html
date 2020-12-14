@@ -1,0 +1,243 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width,initial-scale=1"><title>链表(一):如何实现LRU缓存淘汰算法？ | stramt</title><meta name="keywords" content="数据结构"><meta name="author" content="stramt,stramt0204@163.com"><meta name="copyright" content="stramt"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta http-equiv="Cache-Control" content="no-transform"><meta http-equiv="Cache-Control" content="no-siteapp"><meta name="description" content="链表结构 从上图可以直观的看出，数组需要一块连续的内存空间来存储，对内存的要求比较高，比如我们申请一个数组大小为100m,但是此时内存中没有连续的存储空间，哪怕剩余空间大于100m，也会申请失败。 链表则恰恰相反，它并不需要一块连续的空间，它是通过指针将一组零散的内存块串联起来使用，所以，此时我们申请一个100m的链表，就不会失败。 单链表链表是通过指针将一个个内存块连接起来的，这个内存块我们称之">
+<meta property="og:type" content="article">
+<meta property="og:title" content="链表(一):如何实现LRU缓存淘汰算法？">
+<meta property="og:url" content="http://example.com/2020/12/10/%E9%93%BE%E8%A1%A8/index.html">
+<meta property="og:site_name" content="stramt">
+<meta property="og:description" content="链表结构 从上图可以直观的看出，数组需要一块连续的内存空间来存储，对内存的要求比较高，比如我们申请一个数组大小为100m,但是此时内存中没有连续的存储空间，哪怕剩余空间大于100m，也会申请失败。 链表则恰恰相反，它并不需要一块连续的空间，它是通过指针将一组零散的内存块串联起来使用，所以，此时我们申请一个100m的链表，就不会失败。 单链表链表是通过指针将一个个内存块连接起来的，这个内存块我们称之">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg">
+<meta property="article:published_time" content="2020-12-10T10:02:29.000Z">
+<meta property="article:modified_time" content="2020-12-14T09:47:45.748Z">
+<meta property="article:author" content="stramt">
+<meta property="article:tag" content="数据结构">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="http://example.com/2020/12/10/%E9%93%BE%E8%A1%A8/"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//hm.baidu.com"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@latest/dist/jquery.fancybox.min.css"><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: '',
+  enable_page_level_ads: 'true'
+});</script><script>var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?d7cd319181e2602fbfffd87b4f6a8d7d";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script><script>var GLOBAL_CONFIG = { 
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlighjs","highlightCopy":true,"highlightLang":true},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  date_suffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  ClickShowText: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  justifiedGallery: {
+    js: 'https://cdn.jsdelivr.net/npm/justifiedGallery/dist/js/jquery.justifiedGallery.min.js',
+    css: 'https://cdn.jsdelivr.net/npm/justifiedGallery/dist/css/justifiedGallery.min.css'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isanchor: false
+};
+
+var saveToLocal = {
+  set: function setWithExpiry(key, value, ttl) {
+    const now = new Date()
+    const expiryDay = ttl * 86400000
+    const item = {
+      value: value,
+      expiry: now.getTime() + expiryDay,
+    }
+    localStorage.setItem(key, JSON.stringify(item))
+  },
+
+  get: function getWithExpiry(key) {
+    const itemStr = localStorage.getItem(key)
+
+    if (!itemStr) {
+      return undefined
+    }
+    const item = JSON.parse(itemStr)
+    const now = new Date()
+
+    if (now.getTime() > item.expiry) {
+      localStorage.removeItem(key)
+      return undefined
+    }
+    return item.value
+  }
+}</script><script id="config_change">var GLOBAL_CONFIG_SITE = { 
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2020-12-14 17:47:45'
+}</script><noscript><style type="text/css">
+  #nav {
+    opacity: 1
+  }
+  .justified-gallery img {
+    opacity: 1
+  }
+
+  #recent-posts time,
+  #post-meta time {
+    display: inline !important
+  }
+</style></noscript><script>(function () {  window.activateDarkMode = function () {
+    document.documentElement.setAttribute('data-theme', 'dark')
+    if (document.querySelector('meta[name="theme-color"]') !== null) {
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+    }
+  }
+  window.activateLightMode = function () {
+    document.documentElement.setAttribute('data-theme', 'light')
+   if (document.querySelector('meta[name="theme-color"]') !== null) {
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+    }
+  }
+  const autoChangeMode = 'false'
+  const t = saveToLocal.get('theme')
+  if (autoChangeMode === '1') {
+    const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const isLightMode = window.matchMedia('(prefers-color-scheme: light)').matches
+    const isNotSpecified = window.matchMedia('(prefers-color-scheme: no-preference)').matches
+    const hasNoSupport = !isDarkMode && !isLightMode && !isNotSpecified
+    if (t === undefined) {
+      if (isLightMode) activateLightMode()
+      else if (isDarkMode) activateDarkMode()
+      else if (isNotSpecified || hasNoSupport) {
+        const now = new Date()
+        const hour = now.getHours()
+        const isNight = hour <= 6 || hour >= 18
+        isNight ? activateDarkMode() : activateLightMode()
+      }
+      window.matchMedia('(prefers-color-scheme: dark)').addListener(function (e) {
+        if (saveToLocal.get('theme') === undefined) {
+          e.matches ? activateDarkMode() : activateLightMode()
+        }
+      })
+    } else if (t === 'light') activateLightMode()
+    else activateDarkMode()
+  } else if (autoChangeMode === '2') {
+    const now = new Date()
+    const hour = now.getHours()
+    const isNight = hour <= 6 || hour >= 18
+    if (t === undefined) isNight ? activateDarkMode() : activateLightMode()
+    else if (t === 'light') activateLightMode()
+    else activateDarkMode()
+  } else {
+    if (t === 'dark') activateDarkMode()
+    else if (t === 'light') activateLightMode()
+  }const asideStatus = saveToLocal.get('aside-status')
+if (asideStatus !== undefined) {
+   if (asideStatus === 'hide') {
+     document.documentElement.classList.add('hide-aside')
+   } else {
+     document.documentElement.classList.remove('hide-aside')
+   }
+}})()</script><meta name="generator" content="Hexo 5.2.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="author-avatar"><img class="avatar-img" src="/null" onerror="onerror=null;src='https://stramt-blog.oss-cn-qingdao.aliyuncs.com/1605080027597.png'" alt="avatar"/></div><div class="site-data"><div class="data-item is-center"><div class="data-item-link"><a href="/archives/"><div class="headline">文章</div><div class="length-num">4</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/tags/"><div class="headline">标签</div><div class="length-num">4</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/categories/"><div class="headline">分类</div><div class="length-num">2</div></a></div></div></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 目录</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><span> 友链</span></a></div></div></div></div><div id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg)"><nav id="nav"><span id="blog_name"><a id="site-name" href="/">stramt</a></span><span id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 目录</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><span> 友链</span></a></div></div><span class="close" id="toggle-menu"><a class="site-page"><i class="fas fa-bars fa-fw"></i></a></span></span></nav><div id="post-info"><h1 class="post-title">链表(一):如何实现LRU缓存淘汰算法？</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2020-12-10T10:02:29.000Z" title="发表于 2020-12-10 18:02:29">2020-12-10</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2020-12-14T09:47:45.748Z" title="更新于 2020-12-14 17:47:45">2020-12-14</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/">数据结构</a></span></div><div class="meta-secondline"> <span class="post-meta-separator">|</span><span class="post-meta-pv-cv"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><h3 id="链表结构"><a href="#链表结构" class="headerlink" title="链表结构"></a>链表结构</h3><p><img src="https://static001.geekbang.org/resource/image/d5/cd/d5d5bee4be28326ba3c28373808a62cd.jpg" alt="链表和数组对比图"></p>
+<p>从上图可以直观的看出，数组需要一块连续的内存空间来存储，对内存的要求比较高，比如我们申请一个数组大小为100m,但是此时内存中没有连续的存储空间，哪怕剩余空间大于100m，也会申请失败。</p>
+<p>链表则恰恰相反，它并不需要一块连续的空间，它是通过指针将一组零散的内存块串联起来使用，所以，此时我们申请一个100m的链表，就不会失败。</p>
+<h4 id="单链表"><a href="#单链表" class="headerlink" title="单链表"></a>单链表</h4><p>链表是通过指针将一个个内存块连接起来的，这个内存块我们称之为链表的“<strong>结点</strong>”，为了将所有的结点串起来，每个链表的结点除了存储数据之外，还需要记录链上的下一个结点的地址，我们把这个记录下个结点地址的指针叫做<strong>后继指针next</strong>。</p>
+<p><img src="https://static001.geekbang.org/resource/image/b9/eb/b93e7ade9bb927baad1348d9a806ddeb.jpg" alt="单链表"></p>
+<p>从图中可以看出，头结点和尾结点比较特殊，头结点记录是链表的基准地址，通过基准地址可以遍历整个链表的数据，而尾结点特殊在于，他不是指向用下一个结点，而是只想一个<strong>空地址null</strong>,以此来表示这是链表的最后一个结点。</p>
+<p>与数组一样，链表也支持数据的查找、插入、删除。</p>
+<p>在数组操作插入、删除时，为了保持内存的连续性，需要进行大规模的数据迁移，时间复杂度为O(n)。而链表在插入一个元素时，只需要修改相邻数据的指针即可，时间复杂度为O(1),所以链表在插入和删除操作是非常快速的。</p>
+<p><img src="https://static001.geekbang.org/resource/image/45/17/452e943788bdeea462d364389bd08a17.jpg" alt="链表插入"></p>
+<p>但是，链表想要根据索引访问元素时，相比数组时间复杂度就为O(n),因为，链表的数据是非连续的，我们想要随机访问一个元素时，就需要先从头结点开始遍历，一直通过指针访问下一个结点，直到找到需要的结点为止。</p>
+<h4 id="循环链表"><a href="#循环链表" class="headerlink" title="循环链表"></a>循环链表</h4><p>循环链表是一种特殊的单链表。</p>
+<p>它和单链表唯一的区别就是在于尾结点不在是指向一个NULL结点了，而是指向了头结点。</p>
+<h4 id="双向链表"><a href="#双向链表" class="headerlink" title="双向链表"></a>双向链表</h4><p><img src="https://static001.geekbang.org/resource/image/cb/0b/cbc8ab20276e2f9312030c313a9ef70b.jpg" alt="双向链表"></p>
+<p>从图中可以看出，双向链表相比单链表，每个结点多了一个<strong>前驱指针prev</strong>,因此，在存储相同数据的情况下，双向链表需要更多的空间来存储指针。</p>
+<h5 id="删除"><a href="#删除" class="headerlink" title="删除"></a>删除</h5><p>在实际的开发中，从链表中删除一个数据无外乎这两种情况：</p>
+<p>1.删除结点中 “值等于某个给定值”的结点</p>
+<p>2.删除给定指针指向的结点</p>
+<p>对于1，无论是单链表还是双向链表，都需要从头结点开始，一个个遍历，知道找到需要的结点后删除虽然删除的操作是O(1),但是删除之前查找的操作是O(n)，根据加法法则，删除值等于给定值的结点的链表操作的时间复杂度为O(n)。</p>
+<p>对于2，如果我们需要删除某个结点，就需要知道这个结点的前驱结点，但是单链表是无法获知的，因此，为了找到前驱结点，单链表还是需要从头开始遍历，直到找到p-&gt;next = q,说明p是q的前驱结点，时间复杂度为O(n)，但是这种情况下，双向链表的优势就凸显出来，它可以很方便的知道前驱结点，因此时间复杂度为O(1)。</p>
+<h5 id="插入"><a href="#插入" class="headerlink" title="插入"></a>插入</h5><p>同删除一样，单链表需要知道前驱结点，因此需要遍历整个链表</p>
+<p>双向链表则不需要</p>
+<h5 id="查询"><a href="#查询" class="headerlink" title="查询"></a>查询</h5><p>在处理一个有序链表时，双向链表的效率是要比单链表高的，因为，我们是可以记录上一次查询的位置p,每次查询时，根据需要查找的值与p的大小关系，决定向前还是向后查找</p>
+<p>因此，双向链表的使用场景比单链表要更加广泛，LinkedHashMap就是典型的双向链表。</p>
+<h4 id="如何通过链表实现一个LRU缓存淘汰算法？"><a href="#如何通过链表实现一个LRU缓存淘汰算法？" class="headerlink" title="如何通过链表实现一个LRU缓存淘汰算法？"></a>如何通过链表实现一个LRU缓存淘汰算法？</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testLRU</span><span class="params">()</span></span>&#123;</span><br><span class="line">       <span class="comment">//假设size最大为6</span></span><br><span class="line">       <span class="keyword">int</span> v1 = <span class="number">3</span>;</span><br><span class="line">       <span class="keyword">int</span> v2 = <span class="number">6</span>;</span><br><span class="line">       <span class="keyword">int</span> v3 = <span class="number">7</span>;</span><br><span class="line">       <span class="keyword">int</span> v4= <span class="number">8</span>;</span><br><span class="line">       <span class="keyword">int</span> v5=<span class="number">5</span>;</span><br><span class="line">       LinkedList linkedList = <span class="keyword">new</span> LinkedList();</span><br><span class="line">       linkedList.add(<span class="number">1</span>);</span><br><span class="line">       linkedList.add(<span class="number">2</span>);</span><br><span class="line">       linkedList.add(<span class="number">3</span>);</span><br><span class="line">       linkedList.add(<span class="number">4</span>);</span><br><span class="line">       linkedList.add(<span class="number">5</span>);</span><br><span class="line">       System.out.println(<span class="string">&quot;原始数据：&quot;</span>+JSONObject.toJSONString(linkedList));</span><br><span class="line">       LinkedList data = addLRU(v1, linkedList, <span class="number">6</span>);</span><br><span class="line">       System.out.println(<span class="string">&quot;添加v1=3后：&quot;</span>+JSONObject.toJSONString(data));</span><br><span class="line">       LinkedList data2 = addLRU(v2, data, <span class="number">6</span>);</span><br><span class="line">       System.out.println(<span class="string">&quot;添加v2=6后：&quot;</span>+JSONObject.toJSONString(data2));</span><br><span class="line">       LinkedList data3 = addLRU(v3, data2, <span class="number">6</span>);</span><br><span class="line">       System.out.println(<span class="string">&quot;添加v3=7后：&quot;</span>+JSONObject.toJSONString(data3));</span><br><span class="line">       LinkedList data4 = addLRU(v4, data3, <span class="number">6</span>);</span><br><span class="line">       System.out.println(<span class="string">&quot;添加v4=8后：&quot;</span>+JSONObject.toJSONString(data4));</span><br><span class="line">       LinkedList data5 = addLRU(v5, data4, <span class="number">6</span>);</span><br><span class="line">       System.out.println(<span class="string">&quot;添加v5=5后：&quot;</span>+JSONObject.toJSONString(data5));</span><br><span class="line">   &#125;</span><br><span class="line">   <span class="function"><span class="keyword">private</span> LinkedList <span class="title">addLRU</span><span class="params">(<span class="keyword">int</span> d,LinkedList linkedList,<span class="keyword">int</span> size)</span></span>&#123;</span><br><span class="line">       <span class="keyword">boolean</span> contains = linkedList.contains(d);</span><br><span class="line">       <span class="keyword">if</span>(contains)&#123;</span><br><span class="line">           <span class="comment">//获取当前元素索引</span></span><br><span class="line">           <span class="keyword">int</span> i = linkedList.indexOf(d);</span><br><span class="line">           linkedList.remove(i);</span><br><span class="line">           linkedList.addFirst(d);</span><br><span class="line">       &#125;<span class="keyword">else</span> &#123;</span><br><span class="line">           <span class="keyword">if</span>(linkedList.size() &gt;=size)&#123;</span><br><span class="line">               linkedList.removeLast();</span><br><span class="line">               linkedList.addFirst(d);</span><br><span class="line">           &#125;<span class="keyword">else</span> &#123;</span><br><span class="line">               linkedList.addFirst(d);</span><br><span class="line">           &#125;</span><br><span class="line">       &#125;</span><br><span class="line">       <span class="keyword">return</span> linkedList;</span><br><span class="line">   &#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">原始数据：[<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,<span class="number">4</span>,<span class="number">5</span>]</span><br><span class="line">添加v1=<span class="number">3</span>后：[<span class="number">3</span>,<span class="number">1</span>,<span class="number">2</span>,<span class="number">4</span>,<span class="number">5</span>]</span><br><span class="line">添加v2=<span class="number">6</span>后：[<span class="number">6</span>,<span class="number">3</span>,<span class="number">1</span>,<span class="number">2</span>,<span class="number">4</span>,<span class="number">5</span>]</span><br><span class="line">添加v3=<span class="number">7</span>后：[<span class="number">7</span>,<span class="number">6</span>,<span class="number">3</span>,<span class="number">1</span>,<span class="number">2</span>,<span class="number">4</span>]</span><br><span class="line">添加v4=<span class="number">8</span>后：[<span class="number">8</span>,<span class="number">7</span>,<span class="number">6</span>,<span class="number">3</span>,<span class="number">1</span>,<span class="number">2</span>]</span><br><span class="line">添加v5=<span class="number">5</span>后：[<span class="number">5</span>,<span class="number">8</span>,<span class="number">7</span>,<span class="number">6</span>,<span class="number">3</span>,<span class="number">1</span>]</span><br></pre></td></tr></table></figure>
+
+<p>这里使用LinkedList简单实现了LRU。</p>
+<p>主要思路就是先判断当前元素是否存在链表中，如果存在，就删除当前元素的结点，同时，在头结点添加相同元素，如果不存在，判断当前链表是否达到阈值，如果大于等于阈值，就移除尾结点元素，同时在头结点添加新元素。如果没有超过阈值，且当前链表中又不存在该元素就在头结点添加该元素。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="mailto:stramt0204@163.com">stramt</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a target="_blank" rel="noopener" href="https://github.com/stramt/">https://github.com/stramt/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="http://example.com" target="_blank">stramt</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/">数据结构</a></div><div class="post_share"><div class="social-share" data-image="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/social-share.js/dist/css/share.min.css"><script src="https://cdn.jsdelivr.net/npm/social-share.js/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="next-post pull-full"><a href="/2020/12/10/%E6%95%B0%E7%BB%84/"><img class="next-cover" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" onerror="onerror=null;src='/img/404.jpg'"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">数组</div></div></a></div></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span> 相关推荐</span></div><div class="relatedPosts-list"><div><a href="/2020/11/11/数据结构基础概念/" title="数据结构基础概念"><img class="cover" src="https://stramt-blog.oss-cn-qingdao.aliyuncs.com/1605080072780.png" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2020-11-11</div><div class="title">数据结构基础概念</div></div></a></div><div><a href="/2020/12/10/数组/" title="数组"><img class="cover" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2020-12-10</div><div class="title">数组</div></div></a></div></div></div><hr/><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div class="vcomment" id="vcomment"></div></div></div></div></div><div class="aside_content" id="aside_content"><div class="card-widget card-info"><div class="card-content"><div class="card-info-avatar is-center"><img class="avatar-img" src="/null" onerror="this.onerror=null;this.src='https://stramt-blog.oss-cn-qingdao.aliyuncs.com/1605080027597.png'" alt="avatar"/><div class="author-info__name">stramt</div><div class="author-info__description">stramt的个人小站</div></div><div class="card-info-data"><div class="card-info-data-item is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">4</div></a></div><div class="card-info-data-item is-center"><a href="/tags/"><div class="headline">标签</div><div class="length-num">4</div></a></div><div class="card-info-data-item is-center"><a href="/categories/"><div class="headline">分类</div><div class="length-num">2</div></a></div></div><a class="button--animated" id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/stramt"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/stramt" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div></div><div class="card-widget card-announcement"><div class="card-content"><div class="item-headline"><i class="fas fa-bullhorn card-announcement-animation"></i><span>公告</span></div><div class="announcement_content">公告写点啥好呢</div></div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="card-content"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%93%BE%E8%A1%A8%E7%BB%93%E6%9E%84"><span class="toc-number">1.</span> <span class="toc-text">链表结构</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%8D%95%E9%93%BE%E8%A1%A8"><span class="toc-number">1.1.</span> <span class="toc-text">单链表</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BE%AA%E7%8E%AF%E9%93%BE%E8%A1%A8"><span class="toc-number">1.2.</span> <span class="toc-text">循环链表</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%8F%8C%E5%90%91%E9%93%BE%E8%A1%A8"><span class="toc-number">1.3.</span> <span class="toc-text">双向链表</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%88%A0%E9%99%A4"><span class="toc-number">1.3.1.</span> <span class="toc-text">删除</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%8F%92%E5%85%A5"><span class="toc-number">1.3.2.</span> <span class="toc-text">插入</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%9F%A5%E8%AF%A2"><span class="toc-number">1.3.3.</span> <span class="toc-text">查询</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87%E9%93%BE%E8%A1%A8%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AALRU%E7%BC%93%E5%AD%98%E6%B7%98%E6%B1%B0%E7%AE%97%E6%B3%95%EF%BC%9F"><span class="toc-number">1.4.</span> <span class="toc-text">如何通过链表实现一个LRU缓存淘汰算法？</span></a></li></ol></li></ol></div></div></div><div class="card-widget card-recent-post"><div class="card-content"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2020/12/10/%E9%93%BE%E8%A1%A8/" title="链表(一):如何实现LRU缓存淘汰算法？"><img src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="链表(一):如何实现LRU缓存淘汰算法？"/></a><div class="content"><a class="title" href="/2020/12/10/%E9%93%BE%E8%A1%A8/" title="链表(一):如何实现LRU缓存淘汰算法？">链表(一):如何实现LRU缓存淘汰算法？</a><time datetime="2020-12-10T10:02:29.000Z" title="发表于 2020-12-10 18:02:29">2020-12-10</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2020/12/10/%E6%95%B0%E7%BB%84/" title="数组"><img src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="数组"/></a><div class="content"><a class="title" href="/2020/12/10/%E6%95%B0%E7%BB%84/" title="数组">数组</a><time datetime="2020-12-10T06:05:20.000Z" title="发表于 2020-12-10 14:05:20">2020-12-10</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2020/11/13/Outlook%E9%82%AE%E4%BB%B6%E5%8F%91%E9%80%81/" title="Outlook邮件发送"><img src="https://stramt-blog.oss-cn-qingdao.aliyuncs.com/1605080046933.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Outlook邮件发送"/></a><div class="content"><a class="title" href="/2020/11/13/Outlook%E9%82%AE%E4%BB%B6%E5%8F%91%E9%80%81/" title="Outlook邮件发送">Outlook邮件发送</a><time datetime="2020-11-13T03:09:51.000Z" title="发表于 2020-11-13 11:09:51">2020-11-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2020/11/11/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5/" title="数据结构基础概念"><img src="https://stramt-blog.oss-cn-qingdao.aliyuncs.com/1605080072780.png" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="数据结构基础概念"/></a><div class="content"><a class="title" href="/2020/11/11/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5/" title="数据结构基础概念">数据结构基础概念</a><time datetime="2020-11-11T06:31:03.000Z" title="发表于 2020-11-11 14:31:03">2020-11-11</time></div></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 By stramt</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside_config" type="button" title="设置"><i class="fas fa-cog"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="直达评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><i class="fas fa-arrow-up"></i></button></div></div><div><script src="https://cdn.jsdelivr.net/npm/jquery@latest/dist/jquery.min.js"></script><script src="/js/utils.js"></script><script src="/js/main.js"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@latest/dist/jquery.fancybox.min.js"></script><script>var preloader = {
+  endLoading: () => {
+    document.body.style.overflow = 'auto';
+    document.getElementById('loading-box').classList.add("loaded")
+  },
+  initLoading: () => {
+    document.body.style.overflow = '';
+    document.getElementById('loading-box').classList.remove("loaded")
+
+  }
+}
+window.addEventListener('load',()=> {preloader.endLoading()})</script><div class="js-pjax"><script>function loadValine () {
+  function initValine () {
+    let initData = {
+      el: '#vcomment',
+      appId: '0twI7jtFliqN1aoijB2ogHGk-gzGzoHsz',
+      appKey: 'bQJtiy6slXXi17U7cDphMCqq',
+      placeholder: '记得留下你的昵称和邮箱,可以快速收到回复',
+      avatar: 'monsterid',
+      meta: 'nick,mail,link'.split(','),
+      pageSize: '10',
+      lang: 'zh-CN',
+      recordIP: true,
+      serverURLs: '',
+      emojiCDN: '',
+      emojiMaps: "",
+      enableQQ: false,
+      path: window.location.pathname,
+    }
+
+    if (true) { 
+      initData.requiredFields= ('nick,mail'.split(','))
+    }
+    
+    if (false) {
+      const otherData = false
+      initData = Object.assign({}, initData, otherData)
+    }
+    
+    const valine = new Valine(initData)
+  }
+
+  if (typeof Valine === 'function') initValine() 
+  else $.getScript('https://cdn.jsdelivr.net/npm/valine/dist/Valine.min.js', initValine)
+}
+
+if ('Valine' === 'Valine' || !true) {
+  if (true) btf.loadComment(document.querySelector('#vcomment'),loadValine)
+  else setTimeout(() => loadValine(), 0)
+} else {
+  function loadOtherComment () {
+    loadValine()
+  }
+}</script><script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div><script defer="defer" id="fluttering_ribbon" mobile="true" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/dist/canvas-fluttering-ribbon.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/dist/activate-power-mode.min.js"></script><script>POWERMODE.colorful = true;
+POWERMODE.shake = true;
+POWERMODE.mobile = true;
+document.body.addEventListener('input', POWERMODE);
+</script><script id="click-heart" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/dist/click-heart.min.js" async="async" mobile="true"></script></div></body></html>
