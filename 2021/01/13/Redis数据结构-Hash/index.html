@@ -1,0 +1,314 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Redis数据结构:Hash | stramt</title><meta name="keywords" content="Redis"><meta name="author" content="stramt,stramt0204@163.com"><meta name="copyright" content="stramt"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta http-equiv="Cache-Control" content="no-transform"><meta http-equiv="Cache-Control" content="no-siteapp"><meta name="description" content="Redis中的hash类似于Java中HashMap,都是数组+链表的结构，第一维是个数组，当产生hash碰撞的时候，将碰撞的元素使用链表串接起来。  区别在于，redis中的hash中的value只能是字符串，同时，它们的rehash方式不同，在Java中，当hashmap很大的时候，rehash操作就是一个很耗时的操作，redis中为了高性能，不能阻塞服务，采用的是一种渐进式的rehash方式">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis数据结构:Hash">
+<meta property="og:url" content="http://example.com/2021/01/13/Redis%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84-Hash/index.html">
+<meta property="og:site_name" content="stramt">
+<meta property="og:description" content="Redis中的hash类似于Java中HashMap,都是数组+链表的结构，第一维是个数组，当产生hash碰撞的时候，将碰撞的元素使用链表串接起来。  区别在于，redis中的hash中的value只能是字符串，同时，它们的rehash方式不同，在Java中，当hashmap很大的时候，rehash操作就是一个很耗时的操作，redis中为了高性能，不能阻塞服务，采用的是一种渐进式的rehash方式">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg">
+<meta property="article:published_time" content="2021-01-13T01:58:56.000Z">
+<meta property="article:modified_time" content="2021-01-14T10:05:25.874Z">
+<meta property="article:author" content="stramt">
+<meta property="article:tag" content="Redis">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="http://example.com/2021/01/13/Redis%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84-Hash/"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//hm.baidu.com"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@latest/dist/jquery.fancybox.min.css"><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: '',
+  enable_page_level_ads: 'true'
+});</script><script>var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?d7cd319181e2602fbfffd87b4f6a8d7d";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script><script>var GLOBAL_CONFIG = { 
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlighjs","highlightCopy":true,"highlightLang":true},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  date_suffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  ClickShowText: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  justifiedGallery: {
+    js: 'https://cdn.jsdelivr.net/npm/justifiedGallery/dist/js/jquery.justifiedGallery.min.js',
+    css: 'https://cdn.jsdelivr.net/npm/justifiedGallery/dist/css/justifiedGallery.min.css'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isanchor: false
+};
+
+var saveToLocal = {
+  set: function setWithExpiry(key, value, ttl) {
+    const now = new Date()
+    const expiryDay = ttl * 86400000
+    const item = {
+      value: value,
+      expiry: now.getTime() + expiryDay,
+    }
+    localStorage.setItem(key, JSON.stringify(item))
+  },
+
+  get: function getWithExpiry(key) {
+    const itemStr = localStorage.getItem(key)
+
+    if (!itemStr) {
+      return undefined
+    }
+    const item = JSON.parse(itemStr)
+    const now = new Date()
+
+    if (now.getTime() > item.expiry) {
+      localStorage.removeItem(key)
+      return undefined
+    }
+    return item.value
+  }
+}</script><script id="config_change">var GLOBAL_CONFIG_SITE = { 
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2021-01-14 18:05:25'
+}</script><noscript><style type="text/css">
+  #nav {
+    opacity: 1
+  }
+  .justified-gallery img {
+    opacity: 1
+  }
+
+  #recent-posts time,
+  #post-meta time {
+    display: inline !important
+  }
+</style></noscript><script>(function () {  window.activateDarkMode = function () {
+    document.documentElement.setAttribute('data-theme', 'dark')
+    if (document.querySelector('meta[name="theme-color"]') !== null) {
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+    }
+  }
+  window.activateLightMode = function () {
+    document.documentElement.setAttribute('data-theme', 'light')
+   if (document.querySelector('meta[name="theme-color"]') !== null) {
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+    }
+  }
+  const autoChangeMode = 'false'
+  const t = saveToLocal.get('theme')
+  if (autoChangeMode === '1') {
+    const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const isLightMode = window.matchMedia('(prefers-color-scheme: light)').matches
+    const isNotSpecified = window.matchMedia('(prefers-color-scheme: no-preference)').matches
+    const hasNoSupport = !isDarkMode && !isLightMode && !isNotSpecified
+    if (t === undefined) {
+      if (isLightMode) activateLightMode()
+      else if (isDarkMode) activateDarkMode()
+      else if (isNotSpecified || hasNoSupport) {
+        const now = new Date()
+        const hour = now.getHours()
+        const isNight = hour <= 6 || hour >= 18
+        isNight ? activateDarkMode() : activateLightMode()
+      }
+      window.matchMedia('(prefers-color-scheme: dark)').addListener(function (e) {
+        if (saveToLocal.get('theme') === undefined) {
+          e.matches ? activateDarkMode() : activateLightMode()
+        }
+      })
+    } else if (t === 'light') activateLightMode()
+    else activateDarkMode()
+  } else if (autoChangeMode === '2') {
+    const now = new Date()
+    const hour = now.getHours()
+    const isNight = hour <= 6 || hour >= 18
+    if (t === undefined) isNight ? activateDarkMode() : activateLightMode()
+    else if (t === 'light') activateLightMode()
+    else activateDarkMode()
+  } else {
+    if (t === 'dark') activateDarkMode()
+    else if (t === 'light') activateLightMode()
+  }const asideStatus = saveToLocal.get('aside-status')
+if (asideStatus !== undefined) {
+   if (asideStatus === 'hide') {
+     document.documentElement.classList.add('hide-aside')
+   } else {
+     document.documentElement.classList.remove('hide-aside')
+   }
+}})()</script><meta name="generator" content="Hexo 5.2.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="author-avatar"><img class="avatar-img" src="/null" onerror="onerror=null;src='https://stramt-blog.oss-cn-qingdao.aliyuncs.com/1605080027597.png'" alt="avatar"/></div><div class="site-data"><div class="data-item is-center"><div class="data-item-link"><a href="/archives/"><div class="headline">文章</div><div class="length-num">15</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/tags/"><div class="headline">标签</div><div class="length-num">16</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div></div></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 目录</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><span> 友链</span></a></div></div></div></div><div id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg)"><nav id="nav"><span id="blog_name"><a id="site-name" href="/">stramt</a></span><span id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 目录</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/link/"><span> 友链</span></a></div></div><span class="close" id="toggle-menu"><a class="site-page"><i class="fas fa-bars fa-fw"></i></a></span></span></nav><div id="post-info"><h1 class="post-title">Redis数据结构:Hash</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2021-01-13T01:58:56.000Z" title="发表于 2021-01-13 09:58:56">2021-01-13</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2021-01-14T10:05:25.874Z" title="更新于 2021-01-14 18:05:25">2021-01-14</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Redis/">Redis</a></span></div><div class="meta-secondline"> <span class="post-meta-separator">|</span><span class="post-meta-pv-cv"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>Redis中的hash类似于Java中HashMap,都是数组+链表的结构，第一维是个数组，当产生hash碰撞的时候，将碰撞的元素使用链表串接起来。</p>
+<p><img src="https://raw.githubusercontent.com/stramt/image/main/typora202101/13/101809-735068.png" alt="image-20210113101809154"></p>
+<p>区别在于，redis中的hash中的value只能是字符串，同时，它们的rehash方式不同，在Java中，当hashmap很大的时候，rehash操作就是一个很耗时的操作，redis中为了高性能，不能阻塞服务，采用的是一种渐进式的rehash方式。</p>
+<p>渐进式rehash是在rehash的时候会生成新旧两个hash,查询的时候会同时查询两个hash,通过定时任务利用子指针将旧hash中的内容逐步迁移到新hash中，当旧hash移除最后一个元素之后，旧hash就会被删除，内存被回收。</p>
+<p><img src="https://raw.githubusercontent.com/stramt/image/main/typora202101/13/102459-329000.png" alt="image-20210113102458838"></p>
+<p>hash同string最大的不同就是，hash可以对用户结构中的每个字段单独存储，获取用户信息的时候可以部分获取，不像string，每次只能获取完整数据。</p>
+<p>但，同时hash结构的存储消耗是要高于单个字符串的，具体使用场景需要根据实际业务来权衡。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line">阿里云:0&gt;hset books java &quot;think in java&quot; #set操作</span><br><span class="line">&quot;1&quot;</span><br><span class="line"></span><br><span class="line">阿里云:0&gt;hset books python &quot;python cookbook&quot;</span><br><span class="line">&quot;1&quot;</span><br><span class="line"></span><br><span class="line">阿里云:0&gt;hset books golang &quot;hello golang&quot;</span><br><span class="line">&quot;1&quot;</span><br><span class="line"></span><br><span class="line">阿里云:0&gt;hgetall books #getall 操作</span><br><span class="line"> 1)  &quot;java&quot;</span><br><span class="line"> 2)  &quot;think in java&quot;</span><br><span class="line"> 3)  &quot;python&quot;</span><br><span class="line"> 4)  &quot;python cookbook&quot;</span><br><span class="line"> 5)  &quot;golang&quot;</span><br><span class="line"> 6)  &quot;hello golang&quot;</span><br><span class="line">阿里云:0&gt;hlen books</span><br><span class="line">&quot;3&quot;</span><br><span class="line"></span><br><span class="line">阿里云:0&gt;hget books</span><br><span class="line">&quot;ERR wrong number of arguments for &#x27;hget&#x27; command&quot;</span><br><span class="line"></span><br><span class="line">阿里云:0&gt;hget books java #get操作</span><br><span class="line">&quot;think in java&quot;</span><br><span class="line"></span><br><span class="line">阿里云:0&gt;hset books java &quot;java no1&quot; #修改操作</span><br><span class="line">&quot;0&quot;</span><br><span class="line"></span><br><span class="line">阿里云:0&gt;hget books java</span><br><span class="line">&quot;java no1&quot;</span><br><span class="line"></span><br><span class="line">阿里云:0&gt;hmset books java &quot;java no2&quot; python &quot;python no1&quot; golang &quot;golang no3&quot; #批量set操作</span><br><span class="line">&quot;OK&quot;</span><br><span class="line"></span><br><span class="line">阿里云:0&gt;hgetall books</span><br><span class="line"> 1)  &quot;java&quot;</span><br><span class="line"> 2)  &quot;java no2&quot;</span><br><span class="line"> 3)  &quot;python&quot;</span><br><span class="line"> 4)  &quot;python no1&quot;</span><br><span class="line"> 5)  &quot;golang&quot;</span><br><span class="line"> 6)  &quot;golang no3&quot;</span><br><span class="line">阿里云:0&gt;hincrby user-hdp age 1</span><br><span class="line">&quot;1&quot;</span><br><span class="line"></span><br><span class="line">阿里云:0&gt;hset user-hdp age 29  </span><br><span class="line">&quot;0&quot;</span><br><span class="line"></span><br><span class="line">阿里云:0&gt;hincrby user-hdp age 1 #hash中的字段也可以递增，hincrby 等同于incr</span><br><span class="line">&quot;30&quot;</span><br></pre></td></tr></table></figure>
+
+<h3 id="源码分析"><a href="#源码分析" class="headerlink" title="源码分析"></a>源码分析</h3><h4 id="定义"><a href="#定义" class="headerlink" title="定义"></a>定义</h4><p>在dict.h中定义了字典的结构</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">dict</span> &#123;</span></span><br><span class="line">    <span class="comment">/**特定类型的处理函数**/</span></span><br><span class="line">    dictType *type;</span><br><span class="line">    <span class="comment">/**类型处理的私有化数据**/</span></span><br><span class="line">    <span class="keyword">void</span> *privdata;</span><br><span class="line">    <span class="comment">//两个dict</span></span><br><span class="line">    dictht ht[<span class="number">2</span>];</span><br><span class="line">    <span class="comment">//rehash 索引位置，-1表明没有进行rehash</span></span><br><span class="line">    <span class="keyword">long</span> rehashidx; <span class="comment">/* rehashing not in progress if rehashidx == -1 */</span></span><br><span class="line">    <span class="comment">//当前运行的迭代器</span></span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">long</span> iterators; <span class="comment">/* number of iterators currently running */</span></span><br><span class="line">&#125; dict;</span><br></pre></td></tr></table></figure>
+
+<p>dict中存在两个hash,分别是h0和h1,h0就是正常使用中的hash,h1则是在rehash过程中使用的。</p>
+<p>字典中的哈希表结构在dict.h中</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">dictht</span> &#123;</span></span><br><span class="line">    <span class="comment">//哈希表的数组</span></span><br><span class="line">    dictEntry **table;</span><br><span class="line">    <span class="comment">//数组的大小</span></span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">long</span> size;</span><br><span class="line">    <span class="comment">//数组长度的掩码，用于计算索引值</span></span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">long</span> sizemask;</span><br><span class="line">    <span class="comment">//哈希表中现有的结点数量</span></span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">long</span> used;</span><br><span class="line">&#125; dictht;</span><br></pre></td></tr></table></figure>
+
+<p>table属性是一个数组，数组中每个元素是一个entry,在dict.h中定义</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">dictEntry</span> &#123;</span></span><br><span class="line">    <span class="comment">//键</span></span><br><span class="line">    <span class="keyword">void</span> *key;</span><br><span class="line">    <span class="comment">//值</span></span><br><span class="line">    <span class="class"><span class="keyword">union</span> &#123;</span></span><br><span class="line">        <span class="keyword">void</span> *val;</span><br><span class="line">        <span class="keyword">uint64_t</span> u64;</span><br><span class="line">        <span class="keyword">int64_t</span> s64;</span><br><span class="line">        <span class="keyword">double</span> d;</span><br><span class="line">    &#125; v;</span><br><span class="line">    <span class="comment">//后继结点</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">dictEntry</span> *<span class="title">next</span>;</span></span><br><span class="line">&#125; dictEntry;</span><br></pre></td></tr></table></figure>
+
+<p>这样，每个entry都可以通过后继指针找到下一个entry，这样形成一个链表的结构，因此可以看出，这里是使用的链地址法来处理碰撞的，当多个不同的键拥有相同的哈希值时，哈希表用一个链表将这些键连接起来。</p>
+<p><img src="https://raw.githubusercontent.com/stramt/image/main/typora202101/14/150608-456099.png" alt="image-20210114150607435"></p>
+<p>再加上dict类型，那么整个字典结构如图</p>
+<p><img src="https://raw.githubusercontent.com/stramt/image/main/typora202101/14/150742-799184.png" alt="image-20210114150642432"></p>
+<p>在上图中可知，虽然存在h0,h1两个hash结构，但是只有h0中存在数据，说明当前没有进行rehash操作。</p>
+<h4 id="创建新字典"><a href="#创建新字典" class="headerlink" title="创建新字典"></a>创建新字典</h4><p>在dict.c中</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Create a new hash table */</span></span><br><span class="line"><span class="function">dict *<span class="title">dictCreate</span><span class="params">(dictType *type,</span></span></span><br><span class="line"><span class="function"><span class="params">        <span class="keyword">void</span> *privDataPtr)</span></span></span><br><span class="line"><span class="function"></span>&#123;	</span><br><span class="line">    <span class="comment">//申请字典内存</span></span><br><span class="line">    dict *d = zmalloc(<span class="keyword">sizeof</span>(*d));</span><br><span class="line">	<span class="comment">//调用方法初始化</span></span><br><span class="line">    _dictInit(d,type,privDataPtr);</span><br><span class="line">    <span class="keyword">return</span> d;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/* Initialize the hash table */</span></span><br><span class="line"><span class="keyword">int</span> _dictInit(dict *d, dictType *type,</span><br><span class="line">        <span class="keyword">void</span> *privDataPtr)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">//重置h0</span></span><br><span class="line">    _dictReset(&amp;d-&gt;ht[<span class="number">0</span>]);</span><br><span class="line">    <span class="comment">//重置h1</span></span><br><span class="line">    _dictReset(&amp;d-&gt;ht[<span class="number">1</span>]);</span><br><span class="line">    <span class="comment">//给type属性赋值</span></span><br><span class="line">    d-&gt;type = type;</span><br><span class="line">    <span class="comment">//给私有化数据赋值</span></span><br><span class="line">    d-&gt;privdata = privDataPtr;</span><br><span class="line">    <span class="comment">//设置rehash索引为-1，默认没有进行rehash</span></span><br><span class="line">    d-&gt;rehashidx = <span class="number">-1</span>;</span><br><span class="line">    <span class="comment">//将迭代器指针指向0</span></span><br><span class="line">    d-&gt;iterators = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">return</span> DICT_OK;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">/* Reset a hash table already initialized with ht_init().</span></span><br><span class="line"><span class="comment"> * <span class="doctag">NOTE:</span> This function should only be called by ht_destroy(). */</span></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">void</span> _dictReset(dictht *ht)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">//将ht中属性初始化</span></span><br><span class="line">    ht-&gt;table = <span class="literal">NULL</span>;</span><br><span class="line">    ht-&gt;size = <span class="number">0</span>;</span><br><span class="line">    ht-&gt;sizemask = <span class="number">0</span>;</span><br><span class="line">    ht-&gt;used = <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从这里可知，新建的两个哈希表都没有给ht的属性分配任何空间，都是初始化0的状态</p>
+<p>ht[0]-&gt;table的空间分配将在第一次往字典添加键值对时进行</p>
+<p>ht[1]-&gt;table的空间分配将在rehash开始时进行</p>
+<h4 id="添加键值对到字典"><a href="#添加键值对到字典" class="headerlink" title="添加键值对到字典"></a>添加键值对到字典</h4><p>将一个给定的键值对添加到字典中时，根据字典的状态会呈现不同的操作</p>
+<ul>
+<li>当哈希表为空的时候，就是table为null的时候，这时候添加键值对首先需要进行table的初始化赋值</li>
+<li>当产生hash碰撞的时候，需要进行碰撞计算</li>
+<li>当添加键值对处罚rehash操作时，需要进行rehash操作</li>
+</ul>
+<p>当处理完这些情况后，才能真正的添加到字典上</p>
+<p><img src="https://raw.githubusercontent.com/stramt/image/main/typora202101/14/152856-252743.png" alt="Untitled Diagram"></p>
+<p>在dict.c中</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* Add an element to the target hash table */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">dictAdd</span><span class="params">(dict *d, <span class="keyword">void</span> *key, <span class="keyword">void</span> *val)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    dictEntry *entry = dictAddRaw(d,key,<span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!entry) <span class="keyword">return</span> DICT_ERR;</span><br><span class="line">    <span class="comment">//保存键值对到指定字典中</span></span><br><span class="line">    dictSetVal(d, entry, val);</span><br><span class="line">    <span class="keyword">return</span> DICT_OK;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">dictEntry *<span class="title">dictAddRaw</span><span class="params">(dict *d, <span class="keyword">void</span> *key, dictEntry **existing)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">long</span> index;</span><br><span class="line">    dictEntry *entry;</span><br><span class="line">    dictht *ht;</span><br><span class="line">	<span class="comment">//当前字典是否在rehash中，这里通过rehashindex=-1来判断</span></span><br><span class="line">    <span class="comment">//获取rehash的迭代位置</span></span><br><span class="line">    <span class="keyword">if</span> (dictIsRehashing(d)) _dictRehashStep(d);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//判断当前key在字典中是否存在，如果存在就返回null</span></span><br><span class="line">    <span class="keyword">if</span> ((index = _dictKeyIndex(d, key, dictHashKey(d,key), existing)) == <span class="number">-1</span>)</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">	<span class="comment">//通过rehash状态来获取当前键值对需要添加到哪个ht中</span></span><br><span class="line">    <span class="comment">//如果当前在rehash就追加到ht[1]中，否在追加到ht[0]中</span></span><br><span class="line">    ht = dictIsRehashing(d) ? &amp;d-&gt;ht[<span class="number">1</span>] : &amp;d-&gt;ht[<span class="number">0</span>];</span><br><span class="line">    <span class="comment">//为当前需要新增的键值对申请内存</span></span><br><span class="line">    entry = zmalloc(<span class="keyword">sizeof</span>(*entry));</span><br><span class="line">    <span class="comment">//将entry的next指针指向新的entry</span></span><br><span class="line">    entry-&gt;next = ht-&gt;table[index];</span><br><span class="line">    <span class="comment">//将entry追加到index位置</span></span><br><span class="line">    ht-&gt;table[index] = entry;</span><br><span class="line">    <span class="comment">//ht中userd属性+1</span></span><br><span class="line">    ht-&gt;used++;</span><br><span class="line"> 	<span class="comment">//设置hash需要存储的key</span></span><br><span class="line">    dictSetKey(d, entry, key);</span><br><span class="line">    <span class="keyword">return</span> entry;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://raw.githubusercontent.com/stramt/image/main/typora202101/14/154452-539182.png" alt="image-20210114154452334"></p>
+<p>这是没有元素的空白字典</p>
+<p><img src="https://raw.githubusercontent.com/stramt/image/main/typora202101/14/154542-169264.png" alt="image-20210114154541728"></p>
+<p>当添加一个元素过后的字典</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> DICT_HT_INITIAL_SIZE     4</span></span><br></pre></td></tr></table></figure>
+
+<p>在dict.h中已经定义好了初始化ht的大小为4。</p>
+<h4 id="添加新键值对时发生哈希碰撞的处理"><a href="#添加新键值对时发生哈希碰撞的处理" class="headerlink" title="添加新键值对时发生哈希碰撞的处理"></a>添加新键值对时发生哈希碰撞的处理</h4><p>在添加新键值对的时候，键得到相同的哈希值，这个成为哈希碰撞，redis采用的是链地址法来解决哈希碰撞，就是当哈希值相同的时候，就将新的键值对通过链表链接起来。</p>
+<h4 id="添加新键值队时触发rehash操作"><a href="#添加新键值队时触发rehash操作" class="headerlink" title="添加新键值队时触发rehash操作"></a>添加新键值队时触发rehash操作</h4><p>对于采用链地址法来解决碰撞问题的哈希表dictht来说，哈希表的性能取决于它的size和存储的元素结点（used）个数的比率</p>
+<ul>
+<li>在比率为1:1时，是理想的状况</li>
+<li>当used很大时，而size很小的时候，hash就会退化成链表的结构，失去了hash的意义</li>
+</ul>
+<p>因此，为了保证hash表的性能，就需要rehash操作。</p>
+<p><img src="https://raw.githubusercontent.com/stramt/image/main/typora202101/14/155809-293754.png" alt="image-20210114155809126"></p>
+<p>如图，每次失败查找，空结点需要1次查询，非空结点需要2次</p>
+<p><img src="https://raw.githubusercontent.com/stramt/image/main/typora202101/14/155913-495363.png" alt="image-20210114155903924"></p>
+<p>如图所示，同样的bucket，每次失败查找，最少需要3次查询，最多需要6次查询，这样，hash的效率大大下降，此时，rehash就显得很重要，合适的rehash使得size:used比率保持为1:1附近，这样就能大大的提升哈希表的效率。</p>
+<p>每次dictAdd向字典添加键值对之前，都会对ht[0]进行检查，在dict.c中</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">int</span> _dictExpandIfNeeded(dict *d)</span><br><span class="line">&#123;</span><br><span class="line">   	<span class="comment">//当前字典是否在rehash中，如果在旧房</span></span><br><span class="line">    <span class="keyword">if</span> (dictIsRehashing(d)) <span class="keyword">return</span> DICT_OK;</span><br><span class="line"></span><br><span class="line">   <span class="comment">//当前字典的ht[0]的size是否为0，如果等于0就进行初始化</span></span><br><span class="line">    <span class="keyword">if</span> (d-&gt;ht[<span class="number">0</span>].size == <span class="number">0</span>) <span class="keyword">return</span> dictExpand(d, DICT_HT_INITIAL_SIZE);</span><br><span class="line"></span><br><span class="line">    <span class="comment">//如果ht[0].used &gt;= ht[0].size 并且dict_can_resize属性为真</span></span><br><span class="line">    <span class="comment">//或者ht[0].used/ht[0].size &gt; dict_force_resize_ratio (默认为5)就进行rehash操作</span></span><br><span class="line">    <span class="keyword">if</span> (d-&gt;ht[<span class="number">0</span>].used &gt;= d-&gt;ht[<span class="number">0</span>].size &amp;&amp;</span><br><span class="line">        (dict_can_resize ||</span><br><span class="line">         d-&gt;ht[<span class="number">0</span>].used/d-&gt;ht[<span class="number">0</span>].size &gt; dict_force_resize_ratio) &amp;&amp;</span><br><span class="line">        dictTypeExpandAllowed(d))</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="comment">//hash扩容</span></span><br><span class="line">        <span class="keyword">return</span> dictExpand(d, d-&gt;ht[<span class="number">0</span>].used + <span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> DICT_OK;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从12-15行可知，扩容的判断条件分为两种</p>
+<p>1.自然扩容，就是当used个数大于size的大小，并且dict_can_resize为真的时候，就可以进行扩容</p>
+<p>2.强制扩容，当used/size &gt; dict_force_resize_ratio时，强制扩容。</p>
+<p>目前dict.c中定义</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">int</span> dict_can_resize = <span class="number">1</span>;</span><br><span class="line"><span class="keyword">static</span> <span class="keyword">unsigned</span> <span class="keyword">int</span> dict_force_resize_ratio = <span class="number">5</span>;</span><br></pre></td></tr></table></figure>
+
+<h4 id="rehash的执行过程"><a href="#rehash的执行过程" class="headerlink" title="rehash的执行过程"></a>rehash的执行过程</h4><p>dict.c中</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">dictRehash</span><span class="params">(dict *d, <span class="keyword">int</span> n)</span> </span>&#123;</span><br><span class="line">    <span class="comment">//最大可访问的空桶个数</span></span><br><span class="line">    <span class="keyword">int</span> empty_visits = n*<span class="number">10</span>; </span><br><span class="line">    <span class="comment">//判断当前是否在rehash中</span></span><br><span class="line">    <span class="keyword">if</span> (!dictIsRehashing(d)) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">	</span><br><span class="line">    <span class="keyword">while</span>(n-- &amp;&amp; d-&gt;ht[<span class="number">0</span>].used != <span class="number">0</span>) &#123;</span><br><span class="line">        dictEntry *de, *nextde;</span><br><span class="line">		<span class="comment">//当前ht[0]的size需要大于rehashindex</span></span><br><span class="line">        assert(d-&gt;ht[<span class="number">0</span>].size &gt; (<span class="keyword">unsigned</span> <span class="keyword">long</span>)d-&gt;rehashidx);</span><br><span class="line">        <span class="comment">//当ht[0]中table[rehashindex]为null的时候，说明这个table不存在元素了</span></span><br><span class="line">        <span class="keyword">while</span>(d-&gt;ht[<span class="number">0</span>].table[d-&gt;rehashidx] == <span class="literal">NULL</span>) &#123;</span><br><span class="line">            <span class="comment">//rehashidex累加</span></span><br><span class="line">            d-&gt;rehashidx++;</span><br><span class="line">            <span class="comment">//当没有元素的时候 返回</span></span><br><span class="line">            <span class="keyword">if</span> (--empty_visits == <span class="number">0</span>) <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//获取ht[0]中rehashindex的元素即需要迁移的元素</span></span><br><span class="line">        de = d-&gt;ht[<span class="number">0</span>].table[d-&gt;rehashidx];</span><br><span class="line">        <span class="keyword">while</span>(de) &#123;</span><br><span class="line">            <span class="keyword">uint64_t</span> h;</span><br><span class="line">			<span class="comment">//重新赋值，将ht[0]这个元素迁移到ht[1]中</span></span><br><span class="line">            nextde = de-&gt;next;</span><br><span class="line">            h = dictHashKey(d, de-&gt;key) &amp; d-&gt;ht[<span class="number">1</span>].sizemask;</span><br><span class="line">            de-&gt;next = d-&gt;ht[<span class="number">1</span>].table[h];</span><br><span class="line">            d-&gt;ht[<span class="number">1</span>].table[h] = de;</span><br><span class="line">            d-&gt;ht[<span class="number">0</span>].used--;</span><br><span class="line">            d-&gt;ht[<span class="number">1</span>].used++;</span><br><span class="line">            de = nextde;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//将ht[0].table[index]设置为null</span></span><br><span class="line">        d-&gt;ht[<span class="number">0</span>].table[d-&gt;rehashidx] = <span class="literal">NULL</span>;</span><br><span class="line">        <span class="comment">//rehashindex累加</span></span><br><span class="line">        d-&gt;rehashidx++;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">   	<span class="comment">//如果ht[0]为0的时候，表明迁移完毕，将ht[0].table设置为null,同时将ht[1]设置为ht[0],将ht[1]重置，设置rehashindex为-1,表明rehash结束</span></span><br><span class="line">    <span class="keyword">if</span> (d-&gt;ht[<span class="number">0</span>].used == <span class="number">0</span>) &#123;</span><br><span class="line">        zfree(d-&gt;ht[<span class="number">0</span>].table);</span><br><span class="line">        d-&gt;ht[<span class="number">0</span>] = d-&gt;ht[<span class="number">1</span>];</span><br><span class="line">        _dictReset(&amp;d-&gt;ht[<span class="number">1</span>]);</span><br><span class="line">        d-&gt;rehashidx = <span class="number">-1</span>;</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="1-开始rehash"><a href="#1-开始rehash" class="headerlink" title="1.开始rehash"></a>1.开始rehash</h4><p>1.设置字典的rehashidx为0，标识着rehash的开始</p>
+<p>2.为ht[1]-&gt;table分配空间，大小至少为ht[0]-&gt;used的两倍</p>
+<h4 id="2-rehash进行中"><a href="#2-rehash进行中" class="headerlink" title="2.rehash进行中"></a>2.rehash进行中</h4><p>在这个阶段，ht[0]-&gt;table的节点会逐步迁移到ht[1]-&gt;table中，因为rehash是分批次进行的，因此rehashidx会记录rehash进行到ht[0]的哪个索引上，在rehash的过程中，rehashidx,ht[0].used，ht[1].used的值都会发生变化</p>
+<h4 id="3-节点迁移完毕"><a href="#3-节点迁移完毕" class="headerlink" title="3.节点迁移完毕"></a>3.节点迁移完毕</h4><p>等到ht[0].table中所有元素都迁移到ht[1].table时，这时候ht[0].used=0</p>
+<h4 id="4-rehash结束"><a href="#4-rehash结束" class="headerlink" title="4.rehash结束"></a>4.rehash结束</h4><p>rehash结束时，会释放ht[0]的空间</p>
+<p>让ht[1]代替ht[0]</p>
+<p>创建一个新的ht,设置为ht[1]</p>
+<p>将rehashidx设置为-1</p>
+<p>这样rehash过后的ht[0]大小是原先的两倍，空间更大了，并且原先的键值对也没有被删除</p>
+<h3 id="渐进式rehash"><a href="#渐进式rehash" class="headerlink" title="渐进式rehash"></a>渐进式rehash</h3><p>在传统的rehash中，rehash过程是需要等待完全钱以后服务器才能返回，这个过程中服务器是阻塞的，这对性能有极高要求的redis是不能接受的，因此这里采用的是渐进式rehash</p>
+<p>渐进式rehash分为主动和被动两种</p>
+<h5 id="被动式"><a href="#被动式" class="headerlink" title="被动式"></a>被动式</h5><p>dict.c</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> <span class="keyword">void</span> _dictRehashStep(dict *d) &#123;</span><br><span class="line">    <span class="keyword">if</span> (d-&gt;iterators == <span class="number">0</span>) dictRehash(d,<span class="number">1</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个函数是每次都将ht[0]-&gt;table第一个不为null的索引上的所有节点都迁移到ht[1]-&gt;table上</p>
+<p>在第一次rehash之后，即rehashidx!=-1的时候，每次执行添加、查找、删除操作的时候都会执行一次这个函数</p>
+<p>因为redis希望将hash的节点和数组数保持一定的比率，即1:1左右，因此每个数组上的链表的节点数都不会太多，目前最多不会超过5个，因此对整个链表进行迁移的时候，并不会对整体造成太大的影响。</p>
+<h6 id="主动式"><a href="#主动式" class="headerlink" title="主动式"></a>主动式</h6><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">dictRehashMilliseconds</span><span class="params">(dict *d, <span class="keyword">int</span> ms)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (d-&gt;iterators &gt; <span class="number">0</span>) <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">long</span> <span class="keyword">long</span> start = timeInMilliseconds();</span><br><span class="line">    <span class="keyword">int</span> rehashes = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span>(dictRehash(d,<span class="number">100</span>)) &#123;</span><br><span class="line">        rehashes += <span class="number">100</span>;</span><br><span class="line">        <span class="keyword">if</span> (timeInMilliseconds()-start &gt; ms) <span class="keyword">break</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> rehashes;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果一个hash在保存之后需要进行rehash的时候，但是后续没有操作了，就没有指令处罚rehash操作，那么这个hash就会一直处于很糟糕的状态，redis是不会允许这种情况发生的</p>
+<p>主动定时轮训</p>
+<p>redis会定时调用这个函数，通过这个函数进行一次rehash操作</p>
+<p>在rehash的过程中，新增的元素都会添加到ht[1]中，这样保证ht[0]只减不增</p>
+<p>在rehash的过程中，查询、删除操作会同时在ht[0]和ht[1]两个hash表上进行</p>
+<h4 id="字典的收缩"><a href="#字典的收缩" class="headerlink" title="字典的收缩"></a>字典的收缩</h4><p>字典的收缩和字典的扩展步骤上完全一致，唯一不同的就是扩展需要创建一个比ht[0]大的hash表，而收缩则是创建一个比ht[0]小的hash表</p>
+<p>另一个区别就是扩展都是自动触发的，而收缩则是程序手动进行的</p>
+<p>即每次删除一个键值对的时候，都会对字典进行一次是否需要收缩的判断，如果需要就进行收缩</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="mailto:stramt0204@163.com">stramt</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a target="_blank" rel="noopener" href="https://github.com/stramt/">https://github.com/stramt/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="http://example.com" target="_blank">stramt</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Redis/">Redis</a></div><div class="post_share"><div class="social-share" data-image="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/social-share.js/dist/css/share.min.css"><script src="https://cdn.jsdelivr.net/npm/social-share.js/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="next-post pull-full"><a href="/2021/01/06/Redis%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84-List/"><img class="next-cover" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" onerror="onerror=null;src='/img/404.jpg'"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">Redis数据结构-List</div></div></a></div></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span> 相关推荐</span></div><div class="relatedPosts-list"><div><a href="/2021/01/06/Reids数据结构-String/" title="Reids数据结构:String"><img class="cover" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2021-01-06</div><div class="title">Reids数据结构:String</div></div></a></div><div><a href="/2021/01/06/Redis数据结构-List/" title="Redis数据结构-List"><img class="cover" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2021-01-06</div><div class="title">Redis数据结构-List</div></div></a></div></div></div><hr/><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div class="vcomment" id="vcomment"></div></div></div></div></div><div class="aside_content" id="aside_content"><div class="card-widget card-info"><div class="card-content"><div class="card-info-avatar is-center"><img class="avatar-img" src="/null" onerror="this.onerror=null;this.src='https://stramt-blog.oss-cn-qingdao.aliyuncs.com/1605080027597.png'" alt="avatar"/><div class="author-info__name">stramt</div><div class="author-info__description">stramt的个人小站</div></div><div class="card-info-data"><div class="card-info-data-item is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">15</div></a></div><div class="card-info-data-item is-center"><a href="/tags/"><div class="headline">标签</div><div class="length-num">16</div></a></div><div class="card-info-data-item is-center"><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div></div><a class="button--animated" id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/stramt"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/stramt" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div></div><div class="card-widget card-announcement"><div class="card-content"><div class="item-headline"><i class="fas fa-bullhorn card-announcement-animation"></i><span>公告</span></div><div class="announcement_content">公告写点啥好呢</div></div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="card-content"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90"><span class="toc-number">1.</span> <span class="toc-text">源码分析</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%AE%9A%E4%B9%89"><span class="toc-number">1.1.</span> <span class="toc-text">定义</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA%E6%96%B0%E5%AD%97%E5%85%B8"><span class="toc-number">1.2.</span> <span class="toc-text">创建新字典</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%B7%BB%E5%8A%A0%E9%94%AE%E5%80%BC%E5%AF%B9%E5%88%B0%E5%AD%97%E5%85%B8"><span class="toc-number">1.3.</span> <span class="toc-text">添加键值对到字典</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%B7%BB%E5%8A%A0%E6%96%B0%E9%94%AE%E5%80%BC%E5%AF%B9%E6%97%B6%E5%8F%91%E7%94%9F%E5%93%88%E5%B8%8C%E7%A2%B0%E6%92%9E%E7%9A%84%E5%A4%84%E7%90%86"><span class="toc-number">1.4.</span> <span class="toc-text">添加新键值对时发生哈希碰撞的处理</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%B7%BB%E5%8A%A0%E6%96%B0%E9%94%AE%E5%80%BC%E9%98%9F%E6%97%B6%E8%A7%A6%E5%8F%91rehash%E6%93%8D%E4%BD%9C"><span class="toc-number">1.5.</span> <span class="toc-text">添加新键值队时触发rehash操作</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#rehash%E7%9A%84%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B"><span class="toc-number">1.6.</span> <span class="toc-text">rehash的执行过程</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#1-%E5%BC%80%E5%A7%8Brehash"><span class="toc-number">1.7.</span> <span class="toc-text">1.开始rehash</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-rehash%E8%BF%9B%E8%A1%8C%E4%B8%AD"><span class="toc-number">1.8.</span> <span class="toc-text">2.rehash进行中</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-%E8%8A%82%E7%82%B9%E8%BF%81%E7%A7%BB%E5%AE%8C%E6%AF%95"><span class="toc-number">1.9.</span> <span class="toc-text">3.节点迁移完毕</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-rehash%E7%BB%93%E6%9D%9F"><span class="toc-number">1.10.</span> <span class="toc-text">4.rehash结束</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B8%90%E8%BF%9B%E5%BC%8Frehash"><span class="toc-number">2.</span> <span class="toc-text">渐进式rehash</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E8%A2%AB%E5%8A%A8%E5%BC%8F"><span class="toc-number">2.0.1.</span> <span class="toc-text">被动式</span></a><ol class="toc-child"><li class="toc-item toc-level-6"><a class="toc-link" href="#%E4%B8%BB%E5%8A%A8%E5%BC%8F"><span class="toc-number">2.0.1.1.</span> <span class="toc-text">主动式</span></a></li></ol></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%AD%97%E5%85%B8%E7%9A%84%E6%94%B6%E7%BC%A9"><span class="toc-number">2.1.</span> <span class="toc-text">字典的收缩</span></a></li></ol></li></ol></div></div></div><div class="card-widget card-recent-post"><div class="card-content"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2021/01/13/Redis%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84-Hash/" title="Redis数据结构:Hash"><img src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Redis数据结构:Hash"/></a><div class="content"><a class="title" href="/2021/01/13/Redis%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84-Hash/" title="Redis数据结构:Hash">Redis数据结构:Hash</a><time datetime="2021-01-13T01:58:56.000Z" title="发表于 2021-01-13 09:58:56">2021-01-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2021/01/06/Redis%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84-List/" title="Redis数据结构-List"><img src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Redis数据结构-List"/></a><div class="content"><a class="title" href="/2021/01/06/Redis%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84-List/" title="Redis数据结构-List">Redis数据结构-List</a><time datetime="2021-01-06T07:56:51.000Z" title="发表于 2021-01-06 15:56:51">2021-01-06</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2021/01/06/Reids%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84-String/" title="Reids数据结构:String"><img src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Reids数据结构:String"/></a><div class="content"><a class="title" href="/2021/01/06/Reids%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84-String/" title="Reids数据结构:String">Reids数据结构:String</a><time datetime="2021-01-06T02:57:57.000Z" title="发表于 2021-01-06 10:57:57">2021-01-06</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2021/01/05/Java%E5%86%85%E5%AD%98%E5%8C%BA%E5%9F%9F/" title="Java虚拟机（一）"><img src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Java虚拟机（一）"/></a><div class="content"><a class="title" href="/2021/01/05/Java%E5%86%85%E5%AD%98%E5%8C%BA%E5%9F%9F/" title="Java虚拟机（一）">Java虚拟机（一）</a><time datetime="2021-01-05T02:25:18.000Z" title="发表于 2021-01-05 10:25:18">2021-01-05</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2021/01/04/%E5%BD%92%E5%B9%B6%E6%8E%92%E5%BA%8F%E5%92%8C%E5%BF%AB%E9%80%9F%E6%8E%92%E5%BA%8F/" title="归并排序和快速排序"><img src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="归并排序和快速排序"/></a><div class="content"><a class="title" href="/2021/01/04/%E5%BD%92%E5%B9%B6%E6%8E%92%E5%BA%8F%E5%92%8C%E5%BF%AB%E9%80%9F%E6%8E%92%E5%BA%8F/" title="归并排序和快速排序">归并排序和快速排序</a><time datetime="2021-01-04T08:16:24.000Z" title="发表于 2021-01-04 16:16:24">2021-01-04</time></div></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2021 By stramt</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside_config" type="button" title="设置"><i class="fas fa-cog"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="直达评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><i class="fas fa-arrow-up"></i></button></div></div><div><script src="https://cdn.jsdelivr.net/npm/jquery@latest/dist/jquery.min.js"></script><script src="/js/utils.js"></script><script src="/js/main.js"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@latest/dist/jquery.fancybox.min.js"></script><script>var preloader = {
+  endLoading: () => {
+    document.body.style.overflow = 'auto';
+    document.getElementById('loading-box').classList.add("loaded")
+  },
+  initLoading: () => {
+    document.body.style.overflow = '';
+    document.getElementById('loading-box').classList.remove("loaded")
+
+  }
+}
+window.addEventListener('load',()=> {preloader.endLoading()})</script><div class="js-pjax"><script>function loadValine () {
+  function initValine () {
+    let initData = {
+      el: '#vcomment',
+      appId: '0twI7jtFliqN1aoijB2ogHGk-gzGzoHsz',
+      appKey: 'bQJtiy6slXXi17U7cDphMCqq',
+      placeholder: '记得留下你的昵称和邮箱,可以快速收到回复',
+      avatar: 'monsterid',
+      meta: 'nick,mail,link'.split(','),
+      pageSize: '10',
+      lang: 'zh-CN',
+      recordIP: true,
+      serverURLs: '',
+      emojiCDN: '',
+      emojiMaps: "",
+      enableQQ: false,
+      path: window.location.pathname,
+    }
+
+    if (true) { 
+      initData.requiredFields= ('nick,mail'.split(','))
+    }
+    
+    if (false) {
+      const otherData = false
+      initData = Object.assign({}, initData, otherData)
+    }
+    
+    const valine = new Valine(initData)
+  }
+
+  if (typeof Valine === 'function') initValine() 
+  else $.getScript('https://cdn.jsdelivr.net/npm/valine/dist/Valine.min.js', initValine)
+}
+
+if ('Valine' === 'Valine' || !true) {
+  if (true) btf.loadComment(document.querySelector('#vcomment'),loadValine)
+  else setTimeout(() => loadValine(), 0)
+} else {
+  function loadOtherComment () {
+    loadValine()
+  }
+}</script><script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div><script defer="defer" id="fluttering_ribbon" mobile="true" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/dist/canvas-fluttering-ribbon.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/dist/activate-power-mode.min.js"></script><script>POWERMODE.colorful = true;
+POWERMODE.shake = true;
+POWERMODE.mobile = true;
+document.body.addEventListener('input', POWERMODE);
+</script><script id="click-heart" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/dist/click-heart.min.js" async="async" mobile="true"></script></div></body></html>
